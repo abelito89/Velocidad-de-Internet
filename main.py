@@ -17,6 +17,20 @@ def check_proxy():
     proxy = http_proxy or https_proxy
     return proxy
 
+def speed_test():
+    st = speedtest.Speedtest()
+    st.get_servers()
+    st.get_best_server()
+    download_speed = st.download() / 1_000_000  # Convert to Mbps
+    upload_speed = st.upload() / 1_000_000  # Convert to Mbps
+    
+    # Mensajes de depuración para verificar los valores obtenidos
+    print(f"Download Speed: {download_speed:.2f} Mbps")
+    print(f"Upload Speed: {upload_speed:.2f} Mbps")
+
+    result_label.config(text=f"Download Speed: {download_speed:.2f} Mbps\nUpload Speed: {upload_speed:.2f} Mbps")
+
+
 def get_speed():
     try:
         # Verificar si hay configuración de proxy
@@ -29,17 +43,16 @@ def get_speed():
             proxy_user = simpledialog.askstring("Proxy Configuration", "Enter proxy username:")
             proxy_pass = simpledialog.askstring("Proxy Configuration", "Enter proxy password:", show='*')
             proxy_ip = simpledialog.askstring("Proxy Configuration", "Enter proxy IP:")
-            proxy_port = simpledialog.askstring("Proxy Configuration", "Enter proxy port:")
+            proxy_port = int(simpledialog.askstring("Proxy Configuration", "Enter proxy port:"))
 
             if not all([proxy_user, proxy_pass, proxy_ip, proxy_port]):
                 raise ValueError("Proxy configuration is required.")
 
-            proxy_url = f"{proxy_user}:{proxy_pass}@{proxy_ip}:{proxy_port}"
+            proxy_url = f"http://{proxy_user}:{proxy_pass}@{proxy_ip}:{proxy_port}"
             
-            proxies = {
-                'http': proxy_url,
-                'https': proxy_url
-            }
+            os.environ['http_proxy'] = proxy_url
+            os.environ['https_proxy'] = proxy_url
+
 
             # Usar HTTPS para verificar la conexión del proxy
             ssl_context = ssl.create_default_context()
@@ -53,13 +66,8 @@ def get_speed():
         else:
             print("No proxy detected, performing speed test without proxy.")
             # Realizar prueba de velocidad sin proxy si no hay configuración válida
-            st = speedtest.Speedtest()
-            st.get_servers()
-            st.get_best_server()
-            download_speed = st.download() / 1_000_000  # Convert to Mbps
-            upload_speed = st.upload() / 1_000_000  # Convert to Mbps
-
-            result_label.config(text=f"Download Speed: {download_speed:.2f} Mbps\nUpload Speed: {upload_speed:.2f} Mbps")
+        speed_test()
+        
 
     except Exception as e:
         messagebox.showerror("Error", str(e))
