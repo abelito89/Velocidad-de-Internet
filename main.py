@@ -18,10 +18,15 @@ def check_proxy():
     return proxy
 
 def speed_test():
+    print("Iniciando prueba de velocidad...")
     st = speedtest.Speedtest()
+    print("Obteniendo servidores...")
     st.get_servers()
+    print("Seleccionando el mejor servidor...")
     st.get_best_server()
+    print("Realizando prueba de descarga...")
     download_speed = st.download() / 1_000_000  # Convert to Mbps
+    print("Realizando prueba de subida...")
     upload_speed = st.upload() / 1_000_000  # Convert to Mbps
     
     # Mensajes de depuración para verificar los valores obtenidos
@@ -29,6 +34,7 @@ def speed_test():
     print(f"Upload Speed: {upload_speed:.2f} Mbps")
 
     result_label.config(text=f"Download Speed: {download_speed:.2f} Mbps\nUpload Speed: {upload_speed:.2f} Mbps")
+    print("Prueba de velocidad completada.")
 
 
 def get_speed():
