@@ -18,24 +18,37 @@ def check_proxy():
 def speed_test():
     try:
         print("Iniciando prueba de velocidad...")
+        app.after(0, lambda: progress.config(value=0))  # Inicializar progreso en 0
         st = speedtest.Speedtest()
+        
         print("Obteniendo servidores...")
+        app.after(0, lambda: progress.config(value=20))  # Actualizar barra al 20%
         st.get_servers()
+        
         print("Seleccionando el mejor servidor...")
+        app.after(0, lambda: progress.config(value=40))  # Actualizar barra al 40%
         st.get_best_server()
+        
         print("Realizando prueba de descarga...")
+        app.after(0, lambda: progress.config(value=60))  # Actualizar barra al 60%
         download_speed = st.download() / 1_000_000  # Convertir a Mbps
+        
         print("Realizando prueba de subida...")
+        app.after(0, lambda: progress.config(value=80))  # Actualizar barra al 80%
         upload_speed = st.upload() / 1_000_000  # Convertir a Mbps
-
-        # Mostrar resultados
+        
         print(f"Download Speed: {download_speed:.2f} Mbps")
         print(f"Upload Speed: {upload_speed:.2f} Mbps")
-
-        # Actualizar la etiqueta en la interfaz gráfica
-        result_label.config(text=f"Download Speed: {download_speed:.2f} Mbps\nUpload Speed: {upload_speed:.2f} Mbps", fg="blue")
+        
+        # Finaliza la barra de progreso en 100%
+        app.after(0, lambda: progress.config(value=100))
+        
+        result_label.config(text=f"Download Speed: {download_speed:.2f} Mbps\nUpload Speed: {upload_speed:.2f} Mbps")
+        print("Prueba de velocidad completada.")
+    
     except Exception as e:
-        print(f"Error durante la prueba de velocidad: {e}")
+        messagebox.showerror("Error", str(e))
+
 
 def get_speed():
     try:
@@ -69,33 +82,40 @@ def get_speed():
         messagebox.showerror("Error", str(e))
 
 def create_window():
-    global app, frame, button, result_label
-    app = tk.Tk()
-    app.geometry("500x400")
-    app.title("Internet Speed Test")
-    frame = tk.Frame(app)
-    frame.pack(pady=20)
-    frame.config(bg="#1E1E2F")  # Fondo claro para el frame
-    app.config(bg="#1E1E2F")    # Fondo para la ventana principal
-    progress = ttk.Progressbar(frame, orient='horizontal', length=300, mode='determinate', maximum=100)
-    progress.pack(pady=10)
+    global app, frame, button, result_label, progress
+    try:
+    # Crear la ventana principal
+        app = tk.Tk()
+        app.geometry("500x400")
+        app.title("Internet Speed Test")
+        frame = tk.Frame(app)
+        frame.pack(pady=20)
+        frame.config(bg="#1E1E2F")  # Fondo claro para el frame
+        app.config(bg="#1E1E2F")    # Fondo para la ventana principal
 
-    button = tk.Button(
-        frame, 
-        text="Test Speed", 
-        command=get_speed,
-        bg="#4CAF50", 
-        fg="white", 
-        font=("Helvetica", 14, "bold"),
-        relief="flat", 
-        activebackground="#45a049"
-        )
-    button.pack()
+        button = tk.Button(
+            frame, 
+            text="Test Speed", 
+            command=get_speed,
+            bg="#4CAF50", 
+            fg="white", 
+            font=("Helvetica", 14, "bold"),
+            relief="flat", 
+            activebackground="#45a049"
+            )
+        button.pack()
 
-    result_label = tk.Label(frame, text="", wraplength=400)
-    result_label.pack(pady=10)
+        result_label = tk.Label(frame, text="", wraplength=400)
+        result_label.pack(pady=10)
+        # Crear la barra de progreso
+        progress = ttk.Progressbar(frame, orient='horizontal', length=300, mode='determinate', maximum=100)
+        progress.pack(pady=10)
 
-    return app
+
+        return app
+    except Exception as e:
+        print(f"An error occurred in create_window(): {e}")
+        return None
 
 if __name__ == "__main__":
     root = create_window()
