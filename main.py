@@ -1,9 +1,12 @@
 import tkinter as tk
-from tkinter import simpledialog, messagebox
+from tkinter import simpledialog, messagebox,ttk
 import speedtest
 import os
 import ssl
 from urllib.request import Request, urlopen
+import threading
+
+
 
 def check_proxy():
     http_proxy = os.environ.get('http_proxy')
@@ -30,7 +33,7 @@ def speed_test():
         print(f"Upload Speed: {upload_speed:.2f} Mbps")
 
         # Actualizar la etiqueta en la interfaz gráfica
-        result_label.config(text=f"Download Speed: {download_speed:.2f} Mbps\nUpload Speed: {upload_speed:.2f} Mbps")
+        result_label.config(text=f"Download Speed: {download_speed:.2f} Mbps\nUpload Speed: {upload_speed:.2f} Mbps", fg="blue")
     except Exception as e:
         print(f"Error durante la prueba de velocidad: {e}")
 
@@ -59,7 +62,8 @@ def get_speed():
                     raise Exception("Proxy authentication failed.")
         
         print("No proxy detected, performing speed test without proxy.")
-        speed_test()
+        # Crear un hilo que ejecute la prueba de velocidad, para que no se bloquee la interfaz durante su ejecucion
+        threading.Thread(target=speed_test).start()
 
     except Exception as e:
         messagebox.showerror("Error", str(e))
@@ -67,11 +71,25 @@ def get_speed():
 def create_window():
     global app, frame, button, result_label
     app = tk.Tk()
+    app.geometry("500x400")
     app.title("Internet Speed Test")
     frame = tk.Frame(app)
     frame.pack(pady=20)
+    frame.config(bg="#1E1E2F")  # Fondo claro para el frame
+    app.config(bg="#1E1E2F")    # Fondo para la ventana principal
+    progress = ttk.Progressbar(frame, orient='horizontal', length=300, mode='determinate', maximum=100)
+    progress.pack(pady=10)
 
-    button = tk.Button(frame, text="Test Speed", command=get_speed)
+    button = tk.Button(
+        frame, 
+        text="Test Speed", 
+        command=get_speed,
+        bg="#4CAF50", 
+        fg="white", 
+        font=("Helvetica", 14, "bold"),
+        relief="flat", 
+        activebackground="#45a049"
+        )
     button.pack()
 
     result_label = tk.Label(frame, text="", wraplength=400)
