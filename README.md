@@ -107,15 +107,10 @@ python speed_test_app.py
 ## Example Screenshots
 
 ### Main Screen:
-![Main Window](screenshots/main_window.png)
+![Main Window](screenshots/main_window.png) 
 
 ### Test In Progress:
 ![Progress](screenshots/progress_window.png)
 
 ### Speed Test Result:
 ![Result](screenshots/result_window.png)
-```
-
-### Notas:
-- Asegúrate de crear el archivo `requirements.txt` que contenga las dependencias necesarias, como `speedtest-cli`, y cualquier otra que uses en tu proyecto.
-- También puedes incluir imágenes en la sección de "Example Screenshots" para mostrar cómo se ve la aplicación en acción.
