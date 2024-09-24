@@ -7,11 +7,13 @@ from urllib.request import Request, urlopen
 import requests
 import threading
 from typing import Optional
+from dotenv import load_dotenv
 
+load_dotenv()
 
 # Configurar las variables de entorno manualmente
-os.environ['http_proxy'] = 'http://abel.gomez:Julio*2024@192.168.91.20:3128'
-os.environ['https_proxy'] = 'http://abel.gomez:Julio*2024@192.168.91.20:3128'
+os.environ['http_proxy'] = os.getenv('PROXY_ETECSA')
+os.environ['https_proxy'] = os.getenv('PROXY_ETECSA')
 
 
 def append_debug_message(message: str) -> None:
