@@ -4,8 +4,14 @@ import speedtest
 import os
 import ssl
 from urllib.request import Request, urlopen
+import requests
 import threading
 from typing import Optional
+
+
+# Configurar las variables de entorno manualmente
+os.environ['http_proxy'] = 'http://abel.gomez:Julio*2024@192.168.91.20:3128'
+os.environ['https_proxy'] = 'http://abel.gomez:Julio*2024@192.168.91.20:3128'
 
 
 def append_debug_message(message: str) -> None:
@@ -29,10 +35,13 @@ def check_internet_connection() -> bool:
         bool: True if internet connection is available, False otherwise.
     """
     try:
+        append_debug_message("Intentando conectar a Google...")
         request = Request('https://www.google.com', headers={'User-Agent': 'Mozilla/5.0'})
         with urlopen(request, timeout=5) as response:
+            append_debug_message(f"Estado de la respuesta: {response.status}")
             return response.status == 200
-    except Exception:
+    except Exception as e:
+        append_debug_message(f"Error al intentar conectar: {e}")
         return False
 
 
@@ -46,6 +55,11 @@ def check_proxy() -> Optional[str]:
     http_proxy = os.environ.get('http_proxy')
     https_proxy = os.environ.get('https_proxy')
     append_debug_message(f"Checking proxies...\nhttp_proxy: {http_proxy}\nhttps_proxy: {https_proxy}")
+    if http_proxy:
+        append_debug_message(f"http_proxy detected: {http_proxy}")
+    if https_proxy:
+        append_debug_message(f"https_proxy detected: {https_proxy}")
+    return http_proxy or https_proxy
     return http_proxy or https_proxy
 
 
@@ -108,10 +122,10 @@ def get_speed() -> None:
     Runs the speed test in a separate thread to avoid blocking the UI.
     """
     try:
-        if not check_internet_connection():
-            raise ConnectionError("No internet connection. Please check your connection and try again.")
+        
 
         proxy = check_proxy()
+        append_debug_message(f"Proxy detectado: {proxy}")
 
         if proxy:
             append_debug_message("Proxy detected, requesting user input for proxy configuration.")
@@ -135,6 +149,9 @@ def get_speed() -> None:
                     raise Exception("Proxy authentication failed.")
 
         append_debug_message("No proxy detected, performing speed test without proxy.")
+        append_debug_message("Verificando conexión a Internet...")
+        if not check_internet_connection():
+            raise ConnectionError("No internet connection. Please check your connection and try again.")
         threading.Thread(target=speed_test).start()
 
     except ConnectionError as e:
