@@ -7,14 +7,46 @@ from urllib.request import Request, urlopen
 import requests
 import threading
 from typing import Optional
-from dotenv import load_dotenv
+from pydantic import BaseModel, ValidationError, Field, field_validator
+import re
 
-load_dotenv()
 
-# Configurar las variables de entorno manualmente
-os.environ['http_proxy'] = os.getenv('PROXY_ETECSA')
-os.environ['https_proxy'] = os.getenv('PROXY_ETECSA')
+class ProxyConfig(BaseModel):
+    proxy_user: str = Field(..., min_length=1)
+    proxy_pass: str = Field(..., min_length=1)
+    proxy_ip: str = Field(..., pattern=r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
+    proxy_port: int = Field(..., gt=0, lt=65536)
+    
+    @field_validator('proxy_ip')
+    def validate_ip(cls, v):
+        ip_pattern = re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
+        if not ip_pattern.match(v):
+            raise ValueError('Invalid IP address format')
+        octets = v.split('.')
+        if not all(0 <= int(octet) <= 255 for octet in octets):
+            raise ValueError('IP address octets must be between 0 and 255')
+        return v
 
+    @field_validator('proxy_port')
+    def validate_port(cls, v):
+        if not (0 < v < 65536):
+            raise ValueError('Port number must be between 1 and 65535')
+        return v
+
+
+def proxy_config() -> Optional[ProxyConfig]:
+    try:
+        proxy_config = ProxyConfig(
+            proxy_user=simpledialog.askstring("Proxy Configuration", "Enter proxy username:"),
+            proxy_pass=simpledialog.askstring("Proxy Configuration", "Enter proxy password:", show='*'),
+            proxy_ip=simpledialog.askstring("Proxy Configuration", "Enter proxy IP:"),
+            proxy_port=int(simpledialog.askstring("Proxy Configuration", "Enter proxy port:"))
+        )
+        print("Proxy configuration is valid:", proxy_config)
+        return proxy_config
+    except ValidationError as e:
+        print("Validation error:", e)
+        return None
 
 def append_debug_message(message: str) -> None:
     """
@@ -54,6 +86,11 @@ def check_proxy() -> Optional[str]:
     Returns:
         Optional[str]: The proxy URL if it exists, otherwise None.
     """
+    
+    proxy_config_instance = proxy_config()
+    os.environ['http_proxy'] = f"http://{proxy_config_instance.proxy_user}:{proxy_config_instance.proxy_pass}@{proxy_config_instance.proxy_ip}:{proxy_config_instance.proxy_port}"
+    os.environ['https_proxy'] = f"http://{proxy_config_instance.proxy_user}:{proxy_config_instance.proxy_pass}@{proxy_config_instance.proxy_ip}:{proxy_config_instance.proxy_port}"
+    
     http_proxy = os.environ.get('http_proxy')
     https_proxy = os.environ.get('https_proxy')
     append_debug_message(f"Checking proxies...\nhttp_proxy: {http_proxy}\nhttps_proxy: {https_proxy}")
@@ -61,8 +98,7 @@ def check_proxy() -> Optional[str]:
         append_debug_message(f"http_proxy detected: {http_proxy}")
     if https_proxy:
         append_debug_message(f"https_proxy detected: {https_proxy}")
-    return http_proxy or https_proxy
-    return http_proxy or https_proxy
+    return http_proxy or https_proxy,  proxy_config_instance
 
 
 def update_progress(value: int) -> None:
@@ -126,21 +162,15 @@ def get_speed() -> None:
     try:
         
 
-        proxy = check_proxy()
+        proxy,  proxy_config_instance = check_proxy()
         append_debug_message(f"Proxy detectado: {proxy}")
 
         if proxy:
-            append_debug_message("Proxy detected, requesting user input for proxy configuration.")
-            proxy_user = simpledialog.askstring("Proxy Configuration", "Enter proxy username:")
-            proxy_pass = simpledialog.askstring("Proxy Configuration", "Enter proxy password:", show='*')
-            proxy_ip = simpledialog.askstring("Proxy Configuration", "Enter proxy IP:")
-            proxy_port_str = simpledialog.askstring("Proxy Configuration", "Enter proxy port:")
-
-            if not all([proxy_user, proxy_pass, proxy_ip, proxy_port_str]):
+            if not all([proxy_config_instance.proxy_user, proxy_config_instance.proxy_pass, proxy_config_instance.proxy_ip, proxy_config_instance.proxy_port]):
                 raise ValueError("Proxy configuration is required.")
 
-            proxy_port = int(proxy_port_str)
-            proxy_url = f"http://{proxy_user}:{proxy_pass}@{proxy_ip}:{proxy_port}"
+            proxy_port = int(proxy_config_instance.proxy_port)
+            proxy_url = f"http://{proxy_config_instance.proxy_user}:{proxy_config_instance.proxy_pass}@{proxy_config_instance.proxy_ip}:{proxy_config_instance.proxy_port}"
             os.environ['http_proxy'] = proxy_url
             os.environ['https_proxy'] = proxy_url
 
