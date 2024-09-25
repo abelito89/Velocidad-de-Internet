@@ -81,24 +81,37 @@ def check_internet_connection() -> bool:
 
 def check_proxy() -> Optional[str]:
     """
-    Checks for the presence of proxy settings in the system's environment variables.
+    Checks if there is an active internet connection, and only requests proxy
+    configuration if a direct connection is not available.
     
     Returns:
         Optional[str]: The proxy URL if it exists, otherwise None.
     """
-    
-    proxy_config_instance = proxy_config()
-    os.environ['http_proxy'] = f"http://{proxy_config_instance.proxy_user}:{proxy_config_instance.proxy_pass}@{proxy_config_instance.proxy_ip}:{proxy_config_instance.proxy_port}"
-    os.environ['https_proxy'] = f"http://{proxy_config_instance.proxy_user}:{proxy_config_instance.proxy_pass}@{proxy_config_instance.proxy_ip}:{proxy_config_instance.proxy_port}"
-    
+    # Check if system proxy settings already exist
     http_proxy = os.environ.get('http_proxy')
     https_proxy = os.environ.get('https_proxy')
-    append_debug_message(f"Checking proxies...\nhttp_proxy: {http_proxy}\nhttps_proxy: {https_proxy}")
-    if http_proxy:
-        append_debug_message(f"http_proxy detected: {http_proxy}")
-    if https_proxy:
-        append_debug_message(f"https_proxy detected: {https_proxy}")
-    return http_proxy or https_proxy,  proxy_config_instance
+    
+    if http_proxy or https_proxy:
+        append_debug_message(f"Proxy settings detected:\nhttp_proxy: {http_proxy}\nhttps_proxy: {https_proxy}")
+        return http_proxy or https_proxy
+
+    # Step 1: Check internet connection first before requesting proxy settings
+    if check_internet_connection():
+        append_debug_message("Direct internet connection available, no proxy needed.")
+        return None
+
+    # Step 2: If no connection, ask for proxy configuration
+    append_debug_message("No internet connection detected, requesting proxy configuration...")
+    proxy_config_instance = proxy_config()
+    
+    if proxy_config_instance:
+        os.environ['http_proxy'] = f"http://{proxy_config_instance.proxy_user}:{proxy_config_instance.proxy_pass}@{proxy_config_instance.proxy_ip}:{proxy_config_instance.proxy_port}"
+        os.environ['https_proxy'] = f"http://{proxy_config_instance.proxy_user}:{proxy_config_instance.proxy_pass}@{proxy_config_instance.proxy_ip}:{proxy_config_instance.proxy_port}"
+        
+        append_debug_message(f"Proxy configured:\nhttp_proxy: {os.environ['http_proxy']}\nhttps_proxy: {os.environ['https_proxy']}")
+        return os.environ['http_proxy'], proxy_config_instance
+    # Retorna None si no hay proxy
+    return None, None
 
 
 def update_progress(value: int) -> None:
@@ -160,12 +173,11 @@ def get_speed() -> None:
     Runs the speed test in a separate thread to avoid blocking the UI.
     """
     try:
-        
-
-        proxy,  proxy_config_instance = check_proxy()
+        proxy = check_proxy()  # Solo obtenemos un valor, que es el proxy
         append_debug_message(f"Proxy detectado: {proxy}")
 
         if proxy:
+            proxy_config_instance = proxy_config()  # Solicitamos la configuración del proxy si es necesario
             if not all([proxy_config_instance.proxy_user, proxy_config_instance.proxy_pass, proxy_config_instance.proxy_ip, proxy_config_instance.proxy_port]):
                 raise ValueError("Proxy configuration is required.")
 
