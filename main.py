@@ -10,6 +10,9 @@ from typing import Optional
 from pydantic import BaseModel, ValidationError, Field, field_validator
 import re
 
+"""
+borrar
+"""
 
 class ProxyConfig(BaseModel):
     proxy_user: str = Field(..., min_length=1)
