@@ -34,18 +34,45 @@ class ProxyConfig(BaseModel):
 
 
 def proxy_config() -> Optional[ProxyConfig]:
-    try:
-        proxy_config = ProxyConfig(
-            proxy_user=simpledialog.askstring("Proxy Configuration", "Enter proxy username:"),
-            proxy_pass=simpledialog.askstring("Proxy Configuration", "Enter proxy password:", show='*'),
-            proxy_ip=simpledialog.askstring("Proxy Configuration", "Enter proxy IP:"),
-            proxy_port=int(simpledialog.askstring("Proxy Configuration", "Enter proxy port:"))
-        )
-        print("Proxy configuration is valid:", proxy_config)
-        return proxy_config
-    except ValidationError as e:
-        print("Validation error:", e)
+    proxy_user = simpledialog.askstring("Proxy Configuration", "Enter proxy username:")
+    if proxy_user is None:  # Handle cancel button press
+        append_debug_message("Proxy configuration canceled by user.")
         return None
+
+    proxy_pass = simpledialog.askstring("Proxy Configuration", "Enter proxy password:", show='*')
+    if proxy_pass is None:  # Handle cancel button press
+        append_debug_message("Proxy configuration canceled by user.")
+        return None
+
+    proxy_ip = simpledialog.askstring("Proxy Configuration", "Enter proxy IP:")
+    if proxy_ip is None:  # Handle cancel button press
+        append_debug_message("Proxy configuration canceled by user.")
+        return None
+
+    proxy_port_str = simpledialog.askstring("Proxy Configuration", "Enter proxy port:")
+    if proxy_port_str is None:  # Handle cancel button press
+        append_debug_message("Proxy configuration canceled by user.")
+        return None
+
+    try:
+        proxy_port = int(proxy_port_str)
+    except ValueError:
+        append_debug_message("Invalid port number format.")
+        return None
+
+    try:
+        proxy_config_instance = ProxyConfig(
+            proxy_user=proxy_user,
+            proxy_pass=proxy_pass,
+            proxy_ip=proxy_ip,
+            proxy_port=proxy_port
+        )
+        append_debug_message("Proxy configuration is valid.")
+        return proxy_config_instance
+    except ValidationError as e:
+        append_debug_message(f"Validation error: {e}")
+        return None
+
 
 def append_debug_message(message: str) -> None:
     """
@@ -79,38 +106,30 @@ def check_internet_connection() -> bool:
 
 
 def check_proxy() -> Optional[str]:
-    """
-    Checks if there is an active internet connection, and only requests proxy
-    configuration if a direct connection is not available.
-    
-    Returns:
-        Optional[str]: The proxy URL if it exists, otherwise None.
-    """
-    # Check if system proxy settings already exist
     http_proxy = os.environ.get('http_proxy')
     https_proxy = os.environ.get('https_proxy')
-    
+
     if http_proxy or https_proxy:
         append_debug_message(f"Proxy settings detected:\nhttp_proxy: {http_proxy}\nhttps_proxy: {https_proxy}")
         return http_proxy or https_proxy
 
-    # Step 1: Check internet connection first before requesting proxy settings
     if check_internet_connection():
         append_debug_message("Direct internet connection available, no proxy needed.")
         return None
 
-    # Step 2: If no connection, ask for proxy configuration
     append_debug_message("No internet connection detected, requesting proxy configuration...")
     proxy_config_instance = proxy_config()
-    
-    if proxy_config_instance:
-        os.environ['http_proxy'] = f"http://{proxy_config_instance.proxy_user}:{proxy_config_instance.proxy_pass}@{proxy_config_instance.proxy_ip}:{proxy_config_instance.proxy_port}"
-        os.environ['https_proxy'] = f"http://{proxy_config_instance.proxy_user}:{proxy_config_instance.proxy_pass}@{proxy_config_instance.proxy_ip}:{proxy_config_instance.proxy_port}"
-        
-        append_debug_message(f"Proxy configured:\nhttp_proxy: {os.environ['http_proxy']}\nhttps_proxy: {os.environ['https_proxy']}")
-        return os.environ['http_proxy'], proxy_config_instance
-    # Retorna None si no hay proxy
-    return None, None
+
+    if proxy_config_instance is None:  # Handle case when proxy configuration is canceled
+        append_debug_message("Proxy authentication canceled. Returning to main window.")
+        return None
+
+    os.environ['http_proxy'] = f"http://{proxy_config_instance.proxy_user}:{proxy_config_instance.proxy_pass}@{proxy_config_instance.proxy_ip}:{proxy_config_instance.proxy_port}"
+    os.environ['https_proxy'] = os.environ['http_proxy']
+
+    append_debug_message(f"Proxy configured:\nhttp_proxy: {os.environ['http_proxy']}\nhttps_proxy: {os.environ['https_proxy']}")
+    return os.environ['http_proxy']
+
 
 
 def update_progress(value: int) -> None:
@@ -170,26 +189,26 @@ def get_speed() -> None:
         proxy = check_proxy()
         append_debug_message(f"Proxy detected: {proxy}")
 
-        if proxy:
-            proxy_config_instance = proxy_config()
-            if not all([proxy_config_instance.proxy_user, proxy_config_instance.proxy_pass, proxy_config_instance.proxy_ip, proxy_config_instance.proxy_port]):
-                raise ValueError("Proxy configuration is required.")
+        if proxy is None:  # Si no hay proxy o se cancela, seguimos con la prueba
+            append_debug_message("No proxy detected, performing speed test without proxy.")
+            threading.Thread(target=speed_test).start()
+            return
 
-            proxy_port = int(proxy_config_instance.proxy_port)
-            proxy_url = f"http://{proxy_config_instance.proxy_user}:{proxy_config_instance.proxy_pass}@{proxy_config_instance.proxy_ip}:{proxy_config_instance.proxy_port}"
-            os.environ['http_proxy'] = proxy_url
-            os.environ['https_proxy'] = proxy_url
+        # Si se detecta proxy, configurar e intentar la autenticación
+        proxy_config_instance = proxy_config()
+        if not proxy_config_instance:
+            raise ValueError("Proxy configuration is required.")
+        
+        proxy_url = f"http://{proxy_config_instance.proxy_user}:{proxy_config_instance.proxy_pass}@{proxy_config_instance.proxy_ip}:{proxy_config_instance.proxy_port}"
+        os.environ['http_proxy'] = proxy_url
+        os.environ['https_proxy'] = proxy_url
 
-            ssl_context = ssl.create_default_context()
-            request = Request('https://www.google.com', headers={'User-Agent': 'Mozilla/5.0'})
-            with urlopen(request, context=ssl_context) as response:
-                if response.status != 200:
-                    raise Exception("Proxy authentication failed. Please check your credentials and try again.")
+        ssl_context = ssl.create_default_context()
+        request = Request('https://www.google.com', headers={'User-Agent': 'Mozilla/5.0'})
+        with urlopen(request, context=ssl_context) as response:
+            if response.status != 200:
+                raise Exception("Proxy authentication failed. Please check your credentials and try again.")
 
-        append_debug_message("No proxy detected, performing speed test without proxy.")
-        append_debug_message("Verifying internet connection...")
-        if not check_internet_connection():
-            raise ConnectionError("No internet connection. Please check your connection and try again.")
         threading.Thread(target=speed_test).start()
 
     except ConnectionError as e:
@@ -202,6 +221,7 @@ def get_speed() -> None:
         else:
             messagebox.showerror("Error", str(e))
         append_debug_message(f"Error: {e}")
+
 
 
 def create_window() -> Optional[tk.Tk]:
