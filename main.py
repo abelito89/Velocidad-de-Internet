@@ -166,17 +166,12 @@ def speed_test() -> None:
 
 
 def get_speed() -> None:
-    """
-    Initiates the speed test, either using proxy settings if detected or running the test directly.
-    Prompts the user for proxy authentication credentials if a proxy is detected.
-    Runs the speed test in a separate thread to avoid blocking the UI.
-    """
     try:
-        proxy = check_proxy()  # Solo obtenemos un valor, que es el proxy
-        append_debug_message(f"Proxy detectado: {proxy}")
+        proxy = check_proxy()
+        append_debug_message(f"Proxy detected: {proxy}")
 
         if proxy:
-            proxy_config_instance = proxy_config()  # Solicitamos la configuración del proxy si es necesario
+            proxy_config_instance = proxy_config()
             if not all([proxy_config_instance.proxy_user, proxy_config_instance.proxy_pass, proxy_config_instance.proxy_ip, proxy_config_instance.proxy_port]):
                 raise ValueError("Proxy configuration is required.")
 
@@ -189,10 +184,10 @@ def get_speed() -> None:
             request = Request('https://www.google.com', headers={'User-Agent': 'Mozilla/5.0'})
             with urlopen(request, context=ssl_context) as response:
                 if response.status != 200:
-                    raise Exception("Proxy authentication failed.")
+                    raise Exception("Proxy authentication failed. Please check your credentials and try again.")
 
         append_debug_message("No proxy detected, performing speed test without proxy.")
-        append_debug_message("Verificando conexión a Internet...")
+        append_debug_message("Verifying internet connection...")
         if not check_internet_connection():
             raise ConnectionError("No internet connection. Please check your connection and try again.")
         threading.Thread(target=speed_test).start()
@@ -201,7 +196,11 @@ def get_speed() -> None:
         messagebox.showerror("Connection Error", str(e))
         append_debug_message(f"Connection error: {e}")
     except Exception as e:
-        messagebox.showerror("Error", str(e))
+        if "Proxy authentication failed" in str(e):
+            messagebox.showerror("Proxy Error", "Proxy authentication failed. Please check your credentials and try again.")
+            append_debug_message(f"Proxy error: {e}")
+        else:
+            messagebox.showerror("Error", str(e))
         append_debug_message(f"Error: {e}")
 
 
