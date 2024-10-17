@@ -11,6 +11,8 @@ import re
 
 # Define global variables for thread handling and stop flag
 test_thread = None
+should_stop = False
+
 
 
 class ProxyConfig(BaseModel):
@@ -273,37 +275,28 @@ def get_speed() -> None:
     try:
         if test_thread and test_thread.is_alive():
             append_debug_message("A speed test is already in progress. Please wait.")
-            return  # Evitar iniciar otro test mientras uno está en curso
+            return
+        
         proxy = check_proxy()
         append_debug_message(f"Proxy detected: {proxy}")
-
-        if proxy is None:  # Si no hay proxy o se cancela, seguimos con la prueba
+        
+        if proxy is None:
             append_debug_message("No proxy detected, performing speed test without proxy.")
-            # Usamos test_thread para manejar el hilo de la prueba
             test_thread = threading.Thread(target=speed_test)
-            test_thread.daemon = True  # Configurar el hilo como demonio
+            test_thread.daemon = True
             test_thread.start()
             return
-
-        # Si se detecta proxy, configurar e intentar la autenticación
-        proxy_config_instance = proxy_config()
-        if not proxy_config_instance:
-            raise ValueError("Proxy configuration is required.")
         
-        proxy_url = f"http://{proxy_config_instance.proxy_user}:{proxy_config_instance.proxy_pass}@{proxy_config_instance.proxy_ip}:{proxy_config_instance.proxy_port}"
-        os.environ['http_proxy'] = proxy_url
-        os.environ['https_proxy'] = proxy_url
-
+        # Si llegamos aquí, significa que check_proxy ya configuró el proxy.
+        # No es necesario volver a solicitar la configuración del proxy.
         ssl_context = ssl.create_default_context()
         request = Request('https://www.google.com', headers={'User-Agent': 'Mozilla/5.0'})
         with urlopen(request, context=ssl_context) as response:
             if response.status != 200:
                 raise Exception("Proxy authentication failed. Please check your credentials and try again.")
-
-            # Usamos test_thread para manejar el hilo de la prueba
+        
         test_thread = threading.Thread(target=speed_test)
         test_thread.start()
-
     except ConnectionError as e:
         messagebox.showerror("Connection Error", str(e))
         append_debug_message(f"Connection error: {e}")
