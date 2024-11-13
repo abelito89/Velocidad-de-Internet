@@ -104,17 +104,18 @@ def proxy_config() -> Optional[ProxyConfig]:
         return None
 
 
+
+
 def append_debug_message(message: str) -> None:
-    """
-    Appends a message to the debug log in the UI.
+    def append_message():
+        debug_log.config(state=tk.NORMAL)  # Enable editing temporarily
+        debug_log.insert(tk.END, f"{message}\n")  # Insert the new message
+        debug_log.config(state=tk.DISABLED)  # Disable editing again
+        debug_log.see(tk.END)  # Scroll to the end to show the latest message
     
-    Args:
-        message (str): The debug message to be displayed.
-    """
-    debug_log.config(state=tk.NORMAL)  # Enable editing temporarily
-    debug_log.insert(tk.END, f"{message}\n")  # Insert the new message
-    debug_log.config(state=tk.DISABLED)  # Disable editing again
-    debug_log.see(tk.END)  # Scroll to the end to show the latest message
+    # Asegúrate de que esto se ejecute en el hilo principal
+    app.after(0, append_message)
+
 
 
 def check_internet_connection() -> bool:
