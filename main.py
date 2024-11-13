@@ -199,59 +199,39 @@ def update_progress(value: int) -> None:
 
 
 def speed_test() -> None:
-    """
-    Conducts an internet speed test, updating the progress bar throughout the process.
-
-    This function initializes the speed test, fetching available servers and selecting the best one
-    to ensure accurate results. It measures both download and upload speeds, converting the results 
-    to Mbps for easier interpretation.
-
-    The function updates the progress bar at various stages of the test: 
-    - 0%: Starting the speed test
-    - 20%: Fetching servers
-    - 40%: Selecting the best server
-    - 60%: Performing the download test
-    - 80%: Performing the upload test
-    - 100%: Completing the speed test
-
-    After completing the tests, it displays the results for download and upload speeds in the user interface,
-    and logs the results for debugging purposes.
-
-    Returns:
-        None: This function does not return a value but updates the application state and UI elements directly.
-    """
     try:
-        append_debug_message("Starting speed test...")
+        app.after(0, lambda: append_debug_message("Starting speed test..."))
         app.after(0, lambda: update_progress(0))
+        
         st = speedtest.Speedtest()
 
-        append_debug_message("Fetching servers...")
+        app.after(0, lambda: append_debug_message("Fetching servers..."))
         app.after(0, lambda: update_progress(20))
         st.get_servers()
 
-        append_debug_message("Selecting best server...")
+        app.after(0, lambda: append_debug_message("Selecting best server..."))
         app.after(0, lambda: update_progress(40))
         st.get_best_server()
 
-        append_debug_message("Performing download test...")
+        app.after(0, lambda: append_debug_message("Performing download test..."))
         app.after(0, lambda: update_progress(60))
         download_speed = st.download() / 1_000_000  # Convert to Mbps
 
-        append_debug_message("Performing upload test...")
+        app.after(0, lambda: append_debug_message("Performing upload test..."))
         app.after(0, lambda: update_progress(80))
         upload_speed = st.upload() / 1_000_000  # Convert to Mbps
 
-        append_debug_message(f"Download Speed: {download_speed:.2f} Mbps")
-        append_debug_message(f"Upload Speed: {upload_speed:.2f} Mbps")
+        app.after(0, lambda: append_debug_message(f"Download Speed: {download_speed:.2f} Mbps"))
+        app.after(0, lambda: append_debug_message(f"Upload Speed: {upload_speed:.2f} Mbps"))
 
         app.after(0, lambda: update_progress(100))
 
-        result_label.config(text=f"Download Speed: {download_speed:.2f} Mbps\nUpload Speed: {upload_speed:.2f} Mbps")
-        append_debug_message("Speed test completed.")
+        app.after(0, lambda: result_label.config(text=f"Download Speed: {download_speed:.2f} Mbps\nUpload Speed: {upload_speed:.2f} Mbps"))
+        app.after(0, lambda: append_debug_message("Speed test completed."))
 
     except Exception as e:
-        messagebox.showerror("Error", str(e))
-        append_debug_message(f"Error during speed test: {e}")
+        app.after(0, lambda: messagebox.showerror("Error", str(e)))
+        app.after(0, lambda: append_debug_message(f"Error during speed test: {e}"))
     finally:
         global test_thread
         test_thread = None  # Liberar el hilo después de finalizar el test, para permitir nuevas pruebas
