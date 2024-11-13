@@ -8,12 +8,14 @@ import threading
 from typing import Optional
 from pydantic import BaseModel, ValidationError, Field, field_validator
 import re
+import queue
 
 # Define global variables for thread handling and stop flag
 test_thread = None
 should_stop = False
 
-
+# Crear una cola global para mensajes 
+message_queue = queue.Queue()
 
 class ProxyConfig(BaseModel):
     """
@@ -107,6 +109,8 @@ def proxy_config() -> Optional[ProxyConfig]:
 
 
 def append_debug_message(message: str) -> None:
+    # Coloca el mensaje en la cola en lugar de interactuar directamente con el widget 
+    message_queue.put(message)
     def append_message():
         debug_log.config(state=tk.NORMAL)  # Enable editing temporarily
         debug_log.insert(tk.END, f"{message}\n")  # Insert the new message
@@ -116,6 +120,17 @@ def append_debug_message(message: str) -> None:
     # Asegúrate de que esto se ejecute en el hilo principal
     app.after(0, append_message)
 
+def process_queue() -> None:
+    while not message_queue.empty():
+        message = message_queue.get_nowait()
+        # Aquí es seguro interactuar con Tkinter
+        debug_log.config(state=tk.NORMAL)  # Habilitar edición temporalmente
+        debug_log.insert(tk.END, f"{message}\n")  # Insertar el nuevo mensaje
+        debug_log.config(state=tk.DISABLED)  # Deshabilitar edición de nuevo
+        debug_log.see(tk.END)  # Desplazar al final para mostrar el último mensaje
+    
+    # Volver a llamar a esta función después de 100 ms
+    app.after(100, process_queue)
 
 
 def check_internet_connection() -> bool:
@@ -199,6 +214,7 @@ def update_progress(value: int) -> None:
 
 
 def speed_test() -> None:
+    global should_stop
     try:
         app.after(0, lambda: append_debug_message("Starting speed test..."))
         app.after(0, lambda: update_progress(0))
@@ -206,18 +222,27 @@ def speed_test() -> None:
         st = speedtest.Speedtest()
 
         app.after(0, lambda: append_debug_message("Fetching servers..."))
+        # Revisa la bandera después de un paso importante
+        if should_stop:
+            return  # Detener la ejecución si la bandera está establecida en True
         app.after(0, lambda: update_progress(20))
         st.get_servers()
 
         app.after(0, lambda: append_debug_message("Selecting best server..."))
+        if should_stop:
+            return  # Detener la ejecución si la bandera está establecida en True
         app.after(0, lambda: update_progress(40))
         st.get_best_server()
 
         app.after(0, lambda: append_debug_message("Performing download test..."))
+        if should_stop:
+            return  # Detener la ejecución si la bandera está establecida en True
         app.after(0, lambda: update_progress(60))
         download_speed = st.download() / 1_000_000  # Convert to Mbps
 
         app.after(0, lambda: append_debug_message("Performing upload test..."))
+        if should_stop:
+            return  # Detener la ejecución si la bandera está establecida en True
         app.after(0, lambda: update_progress(80))
         upload_speed = st.upload() / 1_000_000  # Convert to Mbps
 
@@ -226,14 +251,15 @@ def speed_test() -> None:
 
         app.after(0, lambda: update_progress(100))
 
-        app.after(0, lambda: result_label.config(text=f"Download Speed: {download_speed:.2f} Mbps\nUpload Speed: {upload_speed:.2f} Mbps"))
+        if not should_stop:
+            app.after(0, lambda: result_label.config(text=f"Download Speed: {download_speed:.2f} Mbps\nUpload Speed: {upload_speed:.2f} Mbps"))
         app.after(0, lambda: append_debug_message("Speed test completed."))
 
     except Exception as e:
-        app.after(0, lambda: messagebox.showerror("Error", str(e)))
-        app.after(0, lambda: append_debug_message(f"Error during speed test: {e}"))
+        if not should_stop:
+            app.after(0, lambda: messagebox.showerror("Error", str(e)))
+            app.after(0, lambda: append_debug_message(f"Error during speed test: {e}"))
     finally:
-        global test_thread
         test_thread = None  # Liberar el hilo después de finalizar el test, para permitir nuevas pruebas
 
 
@@ -290,19 +316,11 @@ def get_speed() -> None:
         append_debug_message(f"Error: {e}")
 
 def on_close() -> None:
-    """
-    Handles the closing of the application.
-
-    This function is triggered when the application is requested to close. 
-    It performs two main actions:
-    1. Quits the application, which initiates the closing process.
-    2. Destroys the main application window, freeing up resources.
-
-    Returns:
-        None: This function does not return a value but ensures proper termination of the application.
-    """
+    global should_stop
+    should_stop = True  # Indicar que el test debe detenerse
     app.quit()  # Cerrar la aplicación
     app.destroy()  # Destruir la ventana
+
 
 
 
@@ -367,4 +385,5 @@ def create_window() -> Optional[tk.Tk]:
 if __name__ == "__main__":
     root = create_window()
     if root:
+        app.after(100, process_queue)  # Iniciar el procesamiento de la cola
         root.mainloop()
